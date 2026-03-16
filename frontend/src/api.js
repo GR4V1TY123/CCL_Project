@@ -7,7 +7,9 @@ function getSessionId() {
   const key = "ccl_session_id";
   let sessionId = localStorage.getItem(key);
   if (!sessionId) {
-    sessionId = uuidv4();
+    sessionId = crypto?.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2);
     localStorage.setItem(key, sessionId);
   }
   return sessionId;
