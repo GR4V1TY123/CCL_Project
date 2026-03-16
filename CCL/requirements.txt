@@ -1,0 +1,10 @@
+streamlit
+pydantic
+ollama
+fastapi
+uvicorn
+pymongo
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt<4
+python-dotenv
