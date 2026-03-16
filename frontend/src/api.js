@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from "uuid";
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const TOKEN_KEY = "ccl_token";
 
@@ -5,7 +7,7 @@ function getSessionId() {
   const key = "ccl_session_id";
   let sessionId = localStorage.getItem(key);
   if (!sessionId) {
-    sessionId = crypto.randomUUID();
+    sessionId = uuidv4();
     localStorage.setItem(key, sessionId);
   }
   return sessionId;
