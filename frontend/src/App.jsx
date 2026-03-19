@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addKnowledge,
   addStudent,
@@ -18,108 +18,96 @@ import {
 } from "./api";
 import "./App.css";
 
-function ChatMessage({ message, isLastAssistant, onMarkInvalid }) {
+function ChatMessage({ message,  }) {
+  const isUser = message.role === "user";
+
   return (
-    <div className={`message message-${message.role}`}>
-      <div className="message-meta">
-        <span className="message-role">{message.role}</span>
+    <div className={`message-row ${isUser ? "message-row--user" : "message-row--assistant"}`}>
+
+      <div className={`message ${isUser ? "message-user" : "message-assistant"}`}>
+
+        {!isUser && (
+          <div className="message-avatar">
+            AI
+          </div>
+        )}
+
+        <div className="message-bubble">
+
+          <div className="message-content">
+            {message.content}
+          </div>
+
+        </div>
+
       </div>
-      <div className="message-content">{message.content}</div>
-      {isLastAssistant && (
-        <button className="btn-small" onClick={onMarkInvalid}>
-          Mark as invalid
-        </button>
-      )}
+
     </div>
   );
+
 }
 
-function ChatTab({ onError }) {
+function ChatTab({ user }) {
+  
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const lastAssistantIndex = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "assistant") return i;
-    }
-    return -1;
-  }, [messages]);
+  const chatRef = useRef(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { messages } = await getChatHistory();
-        setMessages(messages);
-      } catch (err) {
-        onError(err);
-      }
-    })();
-  }, [onError]);
+    chatRef.current?.scrollTo({
+      top: chatRef.current.scrollHeight,
+      behavior: "smooth"
+    });
+  }, [messages]);
 
-  const send = async (event) => {
-    event.preventDefault();
+  const handleSend = async () => {
+
     if (!input.trim()) return;
 
-    setLoading(true);
-    try {
-      const res = await sendChatMessage(input.trim());
-      setMessages(res.messages);
-      setInput("");
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const userMessage = {
+      role: "user",
+      content: input
+    };
 
-  const markInvalid = async () => {
-    if (lastAssistantIndex < 0) return;
-    setLoading(true);
-    try {
-      await markMessageInvalid(lastAssistantIndex);
-      // optionally refresh logs by emitting a custom event
-      window.dispatchEvent(new CustomEvent("ccl:logs-updated"));
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+
+    const response = await sendChatMessage(input);
+
+    const botMessage = {
+      role: "assistant",
+      content: response.response,
+    };
+
+    setMessages(prev => [...prev, botMessage]);
   };
 
   return (
     <div className="tab-content">
-      <div className="chat-header">
-        <h2>Student Information Chat</h2>
-        <p className="subtitle">Ask about general info or your student data (use your secret key to unlock private info).</p>
-      </div>
-      <div className="chat-window" id="chat-window">
-        {messages.length === 0 ? (
-          <div className="empty-state">Start the conversation by asking a question.</div>
-        ) : (
-          messages.map((msg, idx) => (
-            <ChatMessage
-              key={idx}
-              message={msg}
-              isLastAssistant={idx === lastAssistantIndex}
-              onMarkInvalid={markInvalid}
-            />
-          ))
-        )}
+
+      <div className="chat-window" ref={chatRef}>
+
+        {messages.map((msg, index) => (
+          <ChatMessage key={index} message={msg} />
+        ))}
+
       </div>
 
-      <form className="chat-input" onSubmit={send}>
+      <div className="chat-input">
+
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your question..."
-          disabled={loading}
-          aria-label="Chat input"
+          onChange={(e)=>setInput(e.target.value)}
+          placeholder="Ask something..."
         />
-        <button type="submit" className="btn-primary" disabled={loading || !input.trim()}>
-          {loading ? "Sending..." : "Send"}
+
+        <button type="submit" onClick={handleSend}>
+          Send
         </button>
-      </form>
+
+      </div>
+
     </div>
   );
 }
@@ -545,7 +533,7 @@ function App() {
             </button>
           </div>
         )}
-        {activeTab === "chat" ? <ChatTab onError={setError} /> : <AdminTab onError={setError} />}
+        {activeTab === "chat" ? <ChatTab user={user} onError={setError} /> : <AdminTab onError={setError} />}
       </main>
 
       <footer className="footer">

@@ -1,14 +1,16 @@
 import os
 from typing import List, Optional
-
+from dotenv import load_dotenv
 from models import LogEntry, Student, User
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
+load_dotenv()
+
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "ccl")
 
-
+print("MONGO_URI:", MONGO_URI)
 class MongoCloudDB:
     def __init__(self):
         if not MONGO_URI:
