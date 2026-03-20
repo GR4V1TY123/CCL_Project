@@ -80,6 +80,12 @@ class MongoCloudDB:
     def add_learned_fact(self, fact: str):
         self.learned_facts.insert_one({"fact": fact})
 
+    def get_learned_facts(self) -> List[dict]:
+        return list(self.learned_facts.find({}, {"_id": 0}))
+
+    def get_students_count(self) -> int:
+        return self.students.count_documents({})
+
     def save_invalid_log(self, log_entry: LogEntry):
         self.admin_logs.insert_one(log_entry.dict())
 
@@ -171,6 +177,12 @@ class MockCloudDB:
         
     def add_learned_fact(self, fact: str):
         self.learned_facts.append(fact)
+
+    def get_learned_facts(self) -> List[dict]:
+        return [{"fact": fact} for fact in self.learned_facts]
+
+    def get_students_count(self) -> int:
+        return len(self.students)
 
     def save_invalid_log(self, log_entry: LogEntry):
         self.admin_logs.append(log_entry)
