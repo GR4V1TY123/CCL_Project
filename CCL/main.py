@@ -237,7 +237,7 @@ def mark_invalid(req: ChatFeedbackRequest):
 
 @app.get("/admin/knowledge")
 def get_knowledge(current_user: User = Depends(get_current_user)):
-    return {"learned_facts": db.learned_facts}
+    return {"learned_facts": db.learned_facts()}
 
 @app.post("/admin/knowledge")
 def add_knowledge(req: InfoRequest, current_user: User = Depends(get_current_user)):
@@ -246,7 +246,7 @@ def add_knowledge(req: InfoRequest, current_user: User = Depends(get_current_use
 
 @app.get("/admin/students")
 def get_students(current_user: User = Depends(get_current_user)):
-    return {"students_count": len(db.students)}
+    return {"students_count": db.students.count_documents({})}
 
 @app.post("/admin/students")
 def add_student(student: Student, current_user: User = Depends(get_current_user)):
