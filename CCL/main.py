@@ -27,9 +27,23 @@ from agents import Generator, Reflector, Curator
 
 app = FastAPI(title="Student Information Backend")
 
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://chatbot-bucket-ccl-project.s3-website.us-east-2.amazonaws.com",
+]
+
+extra_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+if extra_origins:
+    ALLOWED_ORIGINS.extend(
+        [origin.strip() for origin in extra_origins.split(",") if origin.strip()]
+    )
+
+ALLOWED_ORIGINS = list(dict.fromkeys(ALLOWED_ORIGINS))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For development, allow all origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -2,17 +2,24 @@ import os
 from typing import List, Optional
 from dotenv import load_dotenv
 from models import LogEntry, Student, User
-from pymongo import MongoClient
-from pymongo.errors import ServerSelectionTimeoutError
+try:
+    from pymongo import MongoClient
+    from pymongo.errors import ServerSelectionTimeoutError
+except ImportError:
+    MongoClient = None
+    ServerSelectionTimeoutError = Exception
 
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "ccl")
+DB_BACKEND = os.getenv("DB_BACKEND", "dict").strip().lower()
+USE_MOCK_DB = os.getenv("USE_MOCK_DB", "true").lower() in {"1", "true", "yes", "on"}
 
-print("MONGO_URI:", MONGO_URI)
 class MongoCloudDB:
     def __init__(self):
+        if MongoClient is None:
+            raise RuntimeError("pymongo is not installed")
         if not MONGO_URI:
             raise RuntimeError("MONGO_URI must be set to use MongoCloudDB")
 
@@ -199,10 +206,17 @@ class MockCloudDB:
     def get_user(self, username: str) -> Optional[User]:
         return self.users.get(username)
 
-# Singleton instance for DB (prefers MongoDB if configured)
-try:
-    db = MongoCloudDB()
-    print("[database] Connected to MongoDB")
-except Exception as e:
-    print(f"[database] MongoDB not available ({e}). Using fallback in-memory DB.")
+# Singleton instance for DB
+if DB_BACKEND in {"dict", "memory", "mock"} or USE_MOCK_DB:
+    print("[database] Using in-memory dictionary DB")
+    db = MockCloudDB()
+elif DB_BACKEND in {"mongo", "mongodb"}:
+    try:
+        db = MongoCloudDB()
+        print("[database] Connected to MongoDB")
+    except Exception as e:
+        print(f"[database] MongoDB not available ({e}). Using fallback in-memory DB.")
+        db = MockCloudDB()
+else:
+    print(f"[database] Unknown DB_BACKEND='{DB_BACKEND}'. Using in-memory dictionary DB.")
     db = MockCloudDB()

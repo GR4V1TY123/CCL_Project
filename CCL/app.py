@@ -100,10 +100,11 @@ with tab2:
                     st.success(f"Added new general info for: {topic_input}")
                     
         st.subheader("Current Learned Knowledge")
-        if not db.learned_facts:
+        learned_facts = db.get_learned_facts()
+        if not learned_facts:
             st.info("No learned facts yet.")
-        for fact in db.learned_facts:
-            st.markdown(f"- {fact}")
+        for fact in learned_facts:
+            st.markdown(f"- {fact.get('fact', '')}")
 
     with col2:
         st.subheader("Add Student")
@@ -121,7 +122,7 @@ with tab2:
                     st.success(f"Added student {new_s_name} with key {new_s_key}")
                     
         st.subheader("Current DB Students Check")
-        st.info(f"There are currently {len(db.students.keys())} students in the mock DB.")
+        st.info(f"There are currently {db.get_students_count()} students in the database.")
 
     st.divider()
     
