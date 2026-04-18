@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addKnowledge,
   addStudent,
@@ -18,7 +18,7 @@ import {
 } from "./api";
 import "./App.css";
 
-function ChatMessage({ message,  }) {
+function ChatMessage({ message, canMarkInvalid, onMarkInvalid, markingInvalid }) {
   const isUser = message.role === "user";
 
   return (
@@ -38,6 +38,19 @@ function ChatMessage({ message,  }) {
             {message.content}
           </div>
 
+          {!isUser && canMarkInvalid && (
+            <div className="feedback-row">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onMarkInvalid}
+                disabled={markingInvalid}
+              >
+                {markingInvalid ? "Reporting..." : "Mark as Invalid"}
+              </button>
+            </div>
+          )}
+
         </div>
 
       </div>
@@ -47,10 +60,12 @@ function ChatMessage({ message,  }) {
 
 }
 
-function ChatTab({ user }) {
+function ChatTab({ onError }) {
   
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [markingIndex, setMarkingIndex] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const chatRef = useRef(null);
 
@@ -60,6 +75,19 @@ function ChatTab({ user }) {
       behavior: "smooth"
     });
   }, [messages]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const history = await getChatHistory();
+        setMessages(history?.messages || []);
+      } catch (err) {
+        onError(err);
+      } finally {
+        setLoadingHistory(false);
+      }
+    })();
+  }, [onError]);
 
   const handleSend = async () => {
 
@@ -73,14 +101,30 @@ function ChatTab({ user }) {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    const response = await sendChatMessage(input);
+    try {
+      const response = await sendChatMessage(input);
 
-    const botMessage = {
-      role: "assistant",
-      content: response.response,
-    };
+      const botMessage = {
+        role: "assistant",
+        content: response.response,
+      };
 
-    setMessages(prev => [...prev, botMessage]);
+      setMessages(prev => [...prev, botMessage]);
+    } catch (err) {
+      onError(err);
+    }
+  };
+
+  const handleMarkInvalid = async (messageIndex) => {
+    try {
+      setMarkingIndex(messageIndex);
+      await markMessageInvalid(messageIndex);
+      window.dispatchEvent(new Event("ccl:logs-updated"));
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMarkingIndex(null);
+    }
   };
 
   return (
@@ -88,9 +132,26 @@ function ChatTab({ user }) {
 
       <div className="chat-window" ref={chatRef}>
 
-        {messages.map((msg, index) => (
-          <ChatMessage key={index} message={msg} />
-        ))}
+        {loadingHistory && (
+          <div className="note">Loading chat history...</div>
+        )}
+
+        {messages.map((msg, index) => {
+          const isAssistant = msg.role === "assistant";
+          const isLatestAssistant =
+            isAssistant &&
+            index === messages.length - 1;
+
+          return (
+            <ChatMessage
+              key={index}
+              message={msg}
+              canMarkInvalid={isLatestAssistant}
+              onMarkInvalid={() => handleMarkInvalid(index)}
+              markingInvalid={markingIndex === index}
+            />
+          );
+        })}
 
       </div>
 
@@ -207,13 +268,17 @@ function AdminTab({ onError }) {
   return (
     <div className="tab-content">
       <div className="admin-header">
+        <p className="section-kicker">Control Center</p>
         <h2>Admin Portal</h2>
         <p className="subtitle">Manage knowledge, student records, and safety logs.</p>
       </div>
 
       <section className="admin-grid">
         <div className="card">
-          <h3>Add General Knowledge</h3>
+          <div className="card-title-row">
+            <h3>Add General Knowledge</h3>
+            <span className="pill">Knowledge Base</span>
+          </div>
           <form onSubmit={handleAddKnowledge} className="form-stack">
             <label>
               Topic / Keyword
@@ -244,14 +309,17 @@ function AdminTab({ onError }) {
           ) : (
             <ul className="list">
               {knowledge.map((fact, idx) => (
-                <li key={idx}>{fact}</li>
+                <li key={idx}>{typeof fact === "string" ? fact : fact?.fact}</li>
               ))}
             </ul>
           )}
         </div>
 
         <div className="card">
-          <h3>Student Records</h3>
+          <div className="card-title-row">
+            <h3>Student Records</h3>
+            <span className="pill">Students: {studentsCount}</span>
+          </div>
           <form onSubmit={handleAddStudent} className="form-stack">
             <label>
               Student Name
@@ -304,11 +372,14 @@ function AdminTab({ onError }) {
               Add Student
             </button>
           </form>
-          <p className="note">Total students in DB: {studentsCount}</p>
+          <p className="note">Review and add records with secret keys for private lookups.</p>
         </div>
 
         <div className="card card-full">
-          <h3>Playbook Rules & Safety Logs</h3>
+          <div className="card-title-row">
+            <h3>Playbook Rules & Safety Logs</h3>
+            <span className="pill">Moderation</span>
+          </div>
           <div className="playbook">
             <h4>Current Rules</h4>
             <ul className="list">
@@ -346,7 +417,7 @@ function AdminTab({ onError }) {
                   <button className="btn-secondary" onClick={() => handleApproveLog(log)}>
                     Approve Fix
                   </button>
-                  <button className="btn-secondary" onClick={() => handleDeleteLog(log.id)}>
+                  <button className="btn-danger" onClick={() => handleDeleteLog(log.id)}>
                     Delete Log
                   </button>
                 </div>
@@ -533,7 +604,12 @@ function App() {
             </button>
           </div>
         )}
-        {activeTab === "chat" ? <ChatTab user={user} onError={setError} /> : <AdminTab onError={setError} />}
+        <section className={activeTab === "chat" ? "tab-panel tab-panel-active" : "tab-panel"}>
+          <ChatTab user={user} onError={setError} />
+        </section>
+        <section className={activeTab === "admin" ? "tab-panel tab-panel-active" : "tab-panel"}>
+          <AdminTab onError={setError} />
+        </section>
       </main>
 
       <footer className="footer">
