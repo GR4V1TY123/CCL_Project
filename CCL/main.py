@@ -31,6 +31,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://chatbot-bucket-ccl-project.s3-website.us-east-2.amazonaws.com",
+    "http://cclprojectbucket123456.s3-website.ap-south-1.amazonaws.com"
 ]
 
 extra_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
